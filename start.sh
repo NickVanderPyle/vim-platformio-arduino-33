@@ -20,5 +20,5 @@ docker run \
             --build-arg USERNAME=${USER} \
             --build-arg USER_UID=$(id -u ${USER}) \
             --build-arg USER_GID=$(id -g ${USER}) \
-            -f ./.devcontainer/dockerfile \
+            -f ./.devcontainer/Dockerfile \
             .)
