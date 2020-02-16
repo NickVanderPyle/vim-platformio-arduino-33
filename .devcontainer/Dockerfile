@@ -39,57 +39,78 @@ RUN apt-get -qqy --no-install-recommends install \
 ENV LANG en_US.UTF-8
 
 # Vim
-RUN apt-get -qqy --no-install-recommends install vim
-#platformio plugin
-RUN git clone --recurse-submodules --depth=1 https://github.com/coddingtonbear/neomake-platformio.git /home/$USERNAME/.vim/pack/bundle/start/nomake-platformio
-# ccls vim plugin
-RUN apt-get -qqy --no-install-recommends install ccls
-RUN echo $"\n\
-\" Register ccls C++ lanuage server.\n\
-if executable('ccls')\n\
-   au User lsp_setup call lsp#register_server({\n\
-      \\ 'name': 'ccls',\n\
-      \\ 'cmd': {server_info->['ccls']},\n\
-      \\ 'root_uri': {server_info->lsp#utils#path_to_uri(lsp#utils#find_nearest_parent_file_directory(lsp#utils#get_buffer_path(), 'compile_commands.json'))},\n\
-      \\ 'initialization_options': {'cache': {'directory': '/tmp/ccls/cache' }},\n\
-      \\ 'whitelist': ['c', 'cpp', 'objc', 'objcpp', 'cc'],\n\
-      \\ })\n\
+# NodeJS required for coc.nvim
+RUN apt-get -qqy --no-install-recommends install vim nodejs npm yarn
+
+# Switching user from root. No more apt-get after this.
+RUN apt-get -y autoremove \
+    && apt-get clean \
+    && rm -Rf /var/lib/apt/lists/*
+
+# Vim-plug needs the .vim directory to be owned by executing user.
+USER $USERNAME
+RUN mkdir -p /home/$USERNAME/.vim/autoload
+
+#vim-plug
+RUN echo "\
+\" vim-plug auto install.\n\
+if empty(glob('~/.vim/autoload/plug.vim'))\n\
+  silent !curl -fLo ~/.vim/autoload/plug.vim --create-dirs\n\
+    \ https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim\n\
+  autocmd VimEnter * PlugInstall --sync | source \$MYVIMRC\n\
 endif\n\
-\" Key bindings for vim-lsp.\n\
-nn <silent> <M-d> :LspDefinition<cr>\n\
-nn <silent> <M-r> :LspReferences<cr>\n\
-nn <f2> :LspRename<cr>\n\
-nn <silent> <M-a> :LspWorkspaceSymbol<cr>\n\
-nn <silent> <M-l> :LspDocumentSymbol<cr>\n\
-\n" >> /home/$USERNAME/.vimrc
-# arduino syntax highlighting
-RUN curl -fLo /home/$USERNAME/.vim/syntax/arduino.vim --create-dirs https://raw.githubusercontent.com/vim-scripts/Arduino-syntax-file/master/syntax/arduino.vim
-# You complete me
-RUN apt-get -qqy --no-install-recommends install \
-        build-essential \
-        cmake \
-        python3-dev \
-    && mkdir -p /home/$USERNAME/.vim/bundle/YouCompleteMe \
-    && cd /home/$USERNAME/.vim/bundle/YouCompleteMe \
-    && git clone --recurse-submodules --depth=1 https://github.com/ycm-core/YouCompleteMe.git . \
-    && python3 install.py --clangd-completer \
-    && cd /home/$USERNAME \
-    # Place at root so YCM should find it when it looks in all parent directories.
-    && curl -fLo /.ycm_extra_conf.py --create-dirs https://gist.githubusercontent.com/ajford/f551b2b6fd4d6b6e1ef2/raw/3bab0d36c667a02877b138219caa6bf7341ce7e1/.ycm_extra_conf.py
-# syntactic
-RUN git clone --recurse-submodules --depth=1 https://github.com/vim-syntastic/syntastic.git /home/$USERNAME/.vim/bundle/syntastic
-RUN echo $"\n\
-\" Put these lines at the very end of your vimrc file\n\
-\" Load all plugins now.\n\
-\" Plugins need to be added before helptags.\n\
-packloadall\n\
-\" Load all of the helptags for syntastic.\n\
-silent! helptags ALL\n\
+\n\
+\n\ 
+\" Begin VIM plugin section in vimrc\n\
+call plug#begin('~/.vim/plugged')\n\
+\" https://github.com/junegunn/fzf.vim#installation \n\
+Plug 'junegunn/fzf', { 'do': './install --bin' } \n\
+Plug 'junegunn/fzf.vim'\n\
+\" https://github.com/neoclide/coc.nvim#quick-start \n\
+Plug 'neoclide/coc.nvim', {'branch': 'release'} \n\
+\" https://github.com/preservim/nerdtree#vim-plug \n\
+Plug 'preservim/nerdtree'\n\
+\" https://github.com/ryanoasis/vim-devicons#installation \n\
+Plug 'ryanoasis/vim-devicons'\n\
+\" https://github.com/coddingtonbear/neomake-platformio \n\
+Plug 'coddingtonbear/neomake-platformio'\n\
+call plug#end()\n\
 \n" >> /home/$USERNAME/.vimrc
 
-RUN apt-get -y autoremove && \
-    apt-get clean && \
-    rm -Rf /var/lib/apt/lists/*
+RUN echo "\
+\" Some defaults.\n\
+\" Turn on the mouse in vim!?\n\
+set mouse=n\n\
+set ttymouse=xterm2\n\
+set encoding=UTF-8\n\
+\" Turn on syntax highlighting.\n\
+syntax on\n\
+\" Turn on line numbering.\n\
+set number\n\
+\" This needs to be set, otherwise the following commands cause the plugin to fail.\n\
+set rtp+=~/.vim/plugged/nerdtree\n\
+\" Open NERDTree when vim opens.\n\
+autocmd vimenter * NERDTree\n\
+\" Close NERDTree if it's the last window open.\n\
+autocmd bufenter * if (winnr(\"\$\") == 1 && exists(\"b:NERDTree\") && b:NERDTree.isTabTree()) | q | endif\n\
+\n" >> /home/$USERNAME/.vimrc
+
+# Configuration for coc.nvim. Setup clangd as language server.
+RUN echo '\n\
+{\n\
+  "languageserver": {\n\
+    "clangd": {\n\
+      "command": "clangd",\n\
+      "args": ["--background-index"],\n\
+      "rootPatterns": ["compile_flags.txt", "compile_commands.json", ".git/", ".hg/"],\n\
+      "filetypes": ["c", "cpp", "objc", "objcpp"]\n\
+    }\n\
+  }\n\
+}\n\
+\n' >> /home/$USERNAME/.vim/coc-settings.json
+
+# arduino syntax highlighting
+RUN curl -fLo /home/$USERNAME/.vim/syntax/arduino.vim --create-dirs https://raw.githubusercontent.com/vim-scripts/Arduino-syntax-file/master/syntax/arduino.vim
 
 ENV DEBIAN_FRONTEND interactive
 
