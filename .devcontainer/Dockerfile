@@ -39,8 +39,12 @@ RUN apt-get -qqy --no-install-recommends install \
 ENV LANG en_US.UTF-8
 
 # Vim
-# NodeJS required for coc.nvim
-RUN apt-get -qqy --no-install-recommends install vim nodejs npm yarn
+RUN apt-get -qqy --no-install-recommends install \
+  vim \
+  # NodeJS required for coc.nvim
+  nodejs npm yarn \
+  # coc.nvim's language server requires clangd
+  clangd
 
 # Switching user from root. No more apt-get after this.
 RUN apt-get -y autoremove \
@@ -67,7 +71,7 @@ call plug#begin('~/.vim/plugged')\n\
 Plug 'junegunn/fzf', { 'do': './install --bin' } \n\
 Plug 'junegunn/fzf.vim'\n\
 \" https://github.com/neoclide/coc.nvim#quick-start \n\
-Plug 'neoclide/coc.nvim', {'branch': 'release'} \n\
+Plug 'neoclide/coc.nvim', {'branch': 'release', 'do': { -> coc#util#install()}} \n\
 \" https://github.com/preservim/nerdtree#vim-plug \n\
 Plug 'preservim/nerdtree'\n\
 \" https://github.com/ryanoasis/vim-devicons#installation \n\
