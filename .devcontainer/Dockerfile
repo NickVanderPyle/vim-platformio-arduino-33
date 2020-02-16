@@ -87,8 +87,6 @@ set encoding=UTF-8\n\
 syntax on\n\
 \" Turn on line numbering.\n\
 set number\n\
-\" This needs to be set, otherwise the following commands cause the plugin to fail.\n\
-set rtp+=~/.vim/plugged/nerdtree\n\
 \" Open NERDTree when vim opens.\n\
 autocmd vimenter * NERDTree\n\
 \" Close NERDTree if it's the last window open.\n\
